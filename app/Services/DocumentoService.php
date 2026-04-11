@@ -69,6 +69,116 @@ class DocumentoService
         return $this->guardar($destino, $nombreArchivo);
     }
 
+    public function generarReportePdfUsuario(SesionPrueba $sesion, array $resumen, string $destino): string
+    {
+        $pdf = new \TCPDF();
+        $pdf->SetCreator('Sistema');
+        $pdf->SetAuthor('Uniempresarial');
+        $pdf->SetTitle('Informe PMA-R');
+        $pdf->SetMargins(15, 30, 15);
+        $pdf->AddPage();
+
+        $navy = [15, 31, 61];
+        $blue = [46, 117, 182];
+        $green = [16, 124, 16];
+        $red = [197, 15, 31];
+        $gray = [107, 122, 141];
+
+        $pdf->SetFillColor(...$navy);
+        $pdf->Rect(0, 0, 210, 25, 'F');
+
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 14);
+        $pdf->SetXY(15, 10);
+        $pdf->Cell(0, 0, 'INFORME INDIVIDUAL PMA-R');
+
+        $pdf->Ln(25);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(0, 10, 'Datos del Evaluado', 0, 1);
+
+        $pdf->SetFont('helvetica', '', 10);
+        $pdf->Cell(0, 6, "Nombre: " . $resumen['usuario'], 0, 1);
+        $pdf->Cell(0, 6, "Documento: " . ($resumen['documento'] ?? '—'), 0, 1);
+        $pdf->Cell(0, 6, "Prueba: " . $resumen['prueba'], 0, 1);
+        $pdf->Cell(0, 6, "Fecha: " . ($resumen['fecha'] ?? '—'), 0, 1);
+
+        $pdf->Ln(5);
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->Cell(0, 8, 'Resultados por Factor', 0, 1);
+
+        $pdf->SetFont('helvetica', 'B', 10);
+        $pdf->SetFillColor(200, 200, 200);
+        $pdf->Cell(40, 7, 'Factor', 1, 0, 'C', true);
+        $pdf->Cell(30, 7, 'Correctas', 1, 0, 'C', true);
+        $pdf->Cell(30, 7, 'Pt. Bruto', 1, 0, 'C', true);
+        $pdf->Cell(40, 7, 'Percentil', 1, 0, 'C', true);
+        $pdf->Cell(40, 7, 'Nivel', 1, 1, 'C', true);
+
+        $pdf->SetFont('helvetica', '', 10);
+
+        foreach ($resumen['resultados'] as $r) {
+            $nivel = $r['nivel'] ?? '—';
+
+            if (in_array($nivel, ['Muy Alto', 'Alto'])) {
+                $pdf->SetTextColor(...$green);
+            } elseif (in_array($nivel, ['Muy Bajo', 'Bajo'])) {
+                $pdf->SetTextColor(...$red);
+            } else {
+                $pdf->SetTextColor(...$blue);
+            }
+
+            $pdf->Cell(40, 7, $r['factor'], 1, 0, 'C');
+            $pdf->Cell(30, 7, $r['correctas'], 1, 0, 'C');
+            $pdf->Cell(30, 7, number_format($r['puntaje_bruto'], 2), 1, 0, 'C');
+            $pdf->Cell(40, 7, $r['percentil'] ? 'P'.$r['percentil'] : '—', 1, 0, 'C');
+            $pdf->Cell(40, 7, $nivel, 1, 1, 'C');
+        }
+
+        $pdf->Ln(10);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->Cell(0, 8, 'Interpretación', 0, 1);
+
+        $pdf->SetFont('helvetica', '', 10);
+        $pdf->MultiCell(0, 6, $resumen['interpretacion'] ?? '—');
+
+        $pdf->Ln(10);
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->Cell(0, 8, 'Perfil de Rendimiento (%)', 0, 1);
+        $pdf->SetFont('helvetica', '', 10);
+        foreach ($resumen['resultados'] as $r) {
+            $pct = (int) round($r['porcentaje'] ?? 0);
+            $barWidth = $pct; // max 100
+            $pdf->Cell(40, 6, $r['factor'], 0, 0);
+
+            // Draw bar
+            $x = $pdf->GetX();
+            $y = $pdf->GetY();
+            $pdf->SetFillColor(220, 220, 220);
+            $pdf->Rect($x, $y + 1, 100, 4, 'F');
+            $pdf->SetFillColor(...$navy);
+            if ($barWidth > 0) {
+                $pdf->Rect($x, $y + 1, $barWidth, 4, 'F');
+            }
+            $pdf->SetX($x + 105);
+            $pdf->Cell(20, 6, $pct . '%', 0, 1);
+        }
+
+        $pdf->SetY(-20);
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->SetTextColor(...$gray);
+        $pdf->Cell(0, 10, 'Informe confidencial - Página ' . $pdf->getAliasNumPage(), 0, 0, 'C');
+
+        if (!is_dir($destino)) mkdir($destino, 0755, true);
+        $nombreArchivo = 'reporte_' . str_replace(' ', '_', strtolower($sesion->user->name)) . '_' . now()->format('Ymd_His') . '.pdf';
+        $rutaPdf = rtrim($destino, '/') . '/' . $nombreArchivo;
+
+        $pdf->Output($rutaPdf, 'F');
+
+        return $rutaPdf;
+    }
+
     // ─── Portada ──────────────────────────────────────────────────────────
 
     private function agregarPortada($section): void

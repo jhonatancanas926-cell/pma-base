@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Services\DocumentoService;
+use App\Services\PdfReporteService;
 use App\Services\PmaService;
 use App\Models\SesionPrueba;
 use App\Models\Test;
@@ -17,6 +18,7 @@ class WebController extends Controller
     public function __construct(
         private readonly PmaService $pmaService,
         private readonly DocumentoService $documentoService,
+        private readonly PdfReporteService $pdfReporteService,
     ) {}
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -240,6 +242,22 @@ class WebController extends Controller
     }
 
     public function descargarReporte(int $sesionId)
+    {
+        $sesion = SesionPrueba::where('id', $sesionId)
+            ->where('user_id', Auth::id())
+            ->with(['test', 'resultados.categoria', 'user'])
+            ->firstOrFail();
+
+        $resumen  = $this->pmaService->resumenSesion($sesion);
+        $destino  = storage_path('app/reportes');
+        $rutaPdf = $this->pdfReporteService->generarPdf($sesion, $resumen, $destino);
+
+        $nombre = 'Reporte_PMA_' . str_replace(' ', '_', $sesion->user->name) . '_' . now()->format('Ymd') . '.pdf';
+
+        return response()->download($rutaPdf, $nombre)->deleteFileAfterSend(true);
+    }
+
+    public function descargarReporteWord(int $sesionId)
     {
         $sesion = SesionPrueba::where('id', $sesionId)
             ->where('user_id', Auth::id())
