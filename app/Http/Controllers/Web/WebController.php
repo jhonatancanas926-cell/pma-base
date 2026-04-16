@@ -220,6 +220,31 @@ class WebController extends Controller
         return response()->json(['ok' => true, 'nueva' => $esNueva]);
     }
 
+    public function responderMultipleAjax(Request $request, int $sesionId)
+    {
+        $sesion = SesionPrueba::where('id', $sesionId)->where('user_id', Auth::id())->firstOrFail();
+        $request->validate([
+            'pregunta_id' => 'required|exists:preguntas,id',
+            'respuestas' => 'present|array',
+            'respuestas.*' => 'string'
+        ]);
+
+        $pregunta = \App\Models\Pregunta::with('opciones')->findOrFail($request->pregunta_id);
+        
+        $esNueva = true;
+        if ($sesion->respuestas()->where('pregunta_id', $pregunta->id)->exists()) {
+            $esNueva = false;
+        } else if (empty($request->respuestas)) {
+            // Si está vacío y es nuevo, no marcamos como nueva si no se guardó antes. 
+            // Esto evita que cuente como respondida al deseleccionar todo por primera vez.
+            $esNueva = false;
+        }
+
+        $this->pmaService->registrarRespuestaMultiple($sesion, $pregunta, $request->respuestas);
+
+        return response()->json(['ok' => true, 'nueva' => $esNueva]);
+    }
+
     public function sesionesResultados(int $sesionId)
     {
         $sesion = SesionPrueba::where('id', $sesionId)

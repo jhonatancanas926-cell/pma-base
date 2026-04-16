@@ -25,6 +25,10 @@
 .timer{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;color:var(--accent);}
 .timer.warning{color:var(--red);animation:pulse 1s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.options-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:1rem;}
+.option-btn.option-with-img{flex-direction:column;align-items:center;padding:1rem;gap:0.75rem;}
+.opt-img-wrapper{flex-grow:1;display:flex;align-items:center;justify-content:center;width:100%;min-height:100px;background:#f8fafc;border-radius:8px;border:1px solid var(--gray100);}
+.opt-img-wrapper img{max-width:100%;max-height:100px;object-fit:contain;}
 </style>
 @endpush
 
@@ -66,15 +70,45 @@
     <div class="question-num">Pregunta {{ $pregunta['numero'] }}</div>
     <div class="question-text">{{ $pregunta['enunciado'] }}</div>
 
-    @if($pregunta['tipo'] === 'opcion_multiple' || $pregunta['tipo'] === 'verdadero_falso')
-    <div class="options" id="opts-{{ $pregunta['id'] }}">
-        @foreach($pregunta['opciones'] as $opcion)
-        <button class="option-btn {{ isset($respuestasGuardadas[$pregunta['id']]) && $respuestasGuardadas[$pregunta['id']] === $opcion['letra'] ? 'selected' : '' }}"
-                onclick="responder({{ $pregunta['id'] }}, '{{ $opcion['letra'] }}', this)"
+    @if(isset($pregunta['metadatos']['imagen_principal']))
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+        @php
+            $imagenPath = str_replace('.png', '.jpg', $pregunta['metadatos']['imagen_principal']);
+        @endphp
+        <img src="{{ asset($imagenPath) }}" alt="Figura de referencia" style="max-width: 100%; max-height: 180px; object-fit: contain; border: 2px solid var(--gray100); border-radius: 8px; padding: 0.5rem;">
+    </div>
+    @endif
+
+    @if($pregunta['tipo'] === 'opcion_multiple' || $pregunta['tipo'] === 'verdadero_falso' || $pregunta['tipo'] === 'seleccion_multiple')
+    @php
+        $tieneImagen = isset($pregunta['metadatos']['requiere_imagen']) && $pregunta['metadatos']['requiere_imagen'];
+    @endphp
+    <div class="options {{ $tieneImagen ? 'options-grid' : '' }}" id="opts-{{ $pregunta['id'] }}">
+        @foreach($pregunta['opciones'] as $index => $opcion)
+        @php
+            $isSelected = false;
+            if (isset($respuestasGuardadas[$pregunta['id']])) {
+                if ($pregunta['tipo'] === 'seleccion_multiple') {
+                    $isSelected = in_array($opcion['letra'], explode(',', $respuestasGuardadas[$pregunta['id']]));
+                } else {
+                    $isSelected = $respuestasGuardadas[$pregunta['id']] === $opcion['letra'];
+                }
+            }
+        @endphp
+        <button class="option-btn {{ $tieneImagen ? 'option-with-img' : '' }} {{ $isSelected ? 'selected' : '' }}"
+                onclick="responder{{ $pregunta['tipo'] === 'seleccion_multiple' ? 'Multiple' : '' }}({{ $pregunta['id'] }}, '{{ $opcion['letra'] }}', this)"
                 data-letra="{{ $opcion['letra'] }}"
                 data-pregunta="{{ $pregunta['id'] }}">
-            <span class="option-letter">{{ $opcion['letra'] }}</span>
-            <span>{{ $opcion['texto'] }}</span>
+            <div style="display: flex; align-items: center; gap: 12px; width: 100%; {{ $tieneImagen ? 'justify-content: center;' : '' }}">
+                <span class="option-letter">{{ $opcion['letra'] }}</span>
+                @if(!$tieneImagen)<span>{{ $opcion['texto'] }}</span>@endif
+            </div>
+            
+            @if($tieneImagen)
+            <div class="opt-img-wrapper">
+                <img src="{{ asset('imagenes/factor_e/' . $pregunta['numero'] . '-' . ($index + 1) . '.jpg') }}" alt="Opción {{ $opcion['letra'] }}">
+            </div>
+            @endif
         </button>
         @endforeach
     </div>
@@ -143,6 +177,30 @@ async function responder(preguntaId, letra, btn) {
         document.getElementById('progressBar').style.width = `${(respondidas/TOTAL)*100}%`;
     } catch(e) {
         console.error('Error al guardar respuesta:', e);
+    }
+}
+
+async function responderMultiple(preguntaId, letra, btn) {
+    btn.classList.toggle('selected');
+    
+    const container = document.getElementById(`opts-${preguntaId}`);
+    const seleccionados = Array.from(container.querySelectorAll('.option-btn.selected'))
+                              .map(b => b.dataset.letra);
+                              
+    try {
+        const res = await fetch(`/web/sesiones/${SESION_ID}/responder-multiple`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ pregunta_id: preguntaId, respuestas: seleccionados })
+        });
+        const data = await res.json();
+        if (data.nueva) respondidas++;
+        document.getElementById('progressBar').style.width = `${(respondidas/TOTAL)*100}%`;
+    } catch(e) {
+        console.error('Error al guardar respuesta múltiple:', e);
     }
 }
 

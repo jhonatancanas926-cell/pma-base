@@ -91,6 +91,34 @@ class PmaService
         );
     }
 
+    public function registrarRespuestaMultiple(
+        SesionPrueba $sesion,
+        Pregunta $pregunta,
+        array $respuestasDadas,
+        ?int $tiempoRespuesta = null
+    ): RespuestaUsuario {
+        if (!$sesion->estaActiva()) {
+            throw new \DomainException('La sesión no está activa.');
+        }
+
+        $respuestasDadas = array_map('strtoupper', $respuestasDadas);
+        sort($respuestasDadas);
+        $respuestaDadaStr = implode(',', $respuestasDadas);
+
+        $esCorrecta = $pregunta->verificarRespuesta($respuestaDadaStr);
+
+        return RespuestaUsuario::updateOrCreate(
+            ['sesion_id' => $sesion->id, 'pregunta_id' => $pregunta->id],
+            [
+                'respuesta_dada' => $respuestaDadaStr,
+                'opcion_id' => null, // Omitimos ID individual
+                'es_correcta' => $esCorrecta,
+                'tiempo_respuesta' => $tiempoRespuesta,
+                'respondida_en' => now(),
+            ]
+        );
+    }
+
     // ─── Calcular resultados al finalizar sesión ──────────────────────────
 
     public function calcularResultados(SesionPrueba $sesion): array

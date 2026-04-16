@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function () {
     // Responder preguntas
     Route::get('/prueba/{id}/responder', [WebController::class, 'pruebaResponder'])->name('prueba.responder');
     Route::post('/web/sesiones/{id}/responder', [WebController::class, 'responderAjax'])->name('prueba.responder.ajax');
+    Route::post('/web/sesiones/{id}/responder-multiple', [WebController::class, 'responderMultipleAjax'])->name('prueba.responder.multiple.ajax');
 
     // Estadísticas
     Route::get('/estadisticas', [WebController::class, 'estadisticas'])->name('estadisticas');

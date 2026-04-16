@@ -62,6 +62,14 @@ class Pregunta extends Model
 
     public function verificarRespuesta(string $respuesta): bool
     {
+        if ($this->tipo === 'seleccion_multiple') {
+            $correctas = explode(',', strtoupper($this->respuesta_correcta));
+            $dadas = explode(',', strtoupper($respuesta));
+            sort($correctas);
+            sort($dadas);
+            return implode(',', $correctas) === implode(',', $dadas);
+        }
+
         return match ($this->tipo) {
             'opcion_multiple' => $this->respuesta_correcta === $respuesta,
             'verdadero_falso' => strtolower($this->respuesta_correcta) === strtolower($respuesta),
