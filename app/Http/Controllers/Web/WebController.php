@@ -47,6 +47,12 @@ class WebController extends Controller
             'user_email' => $user->email,
         ]);
 
+        if ($user->role === 'evaluado') {
+            return redirect()->route('pruebas.index');
+        } elseif ($user->role === 'evaluador') {
+            return redirect()->route('sesiones.index');
+        }
+
         return redirect()->route('dashboard');
     }
 
@@ -77,7 +83,7 @@ class WebController extends Controller
         Auth::login($user);
         session(['user_name' => $user->name, 'user_role' => $user->role]);
 
-        return redirect()->route('dashboard')->with('flash_success', 'Cuenta creada correctamente. ¡Bienvenido!');
+        return redirect()->route('pruebas.index')->with('flash_success', 'Cuenta creada correctamente. ¡Bienvenido!');
     }
 
     public function logout()
@@ -125,23 +131,46 @@ class WebController extends Controller
             ->where('estado', 'en_progreso')
             ->first()?->toArray();
 
-        return view('prueba.show', compact('test', 'sesionActiva'));
+        $yaCompletada = false;
+        if (Auth::user()->role === 'evaluado') {
+            $yaCompletada = SesionPrueba::where('user_id', Auth::id())
+                ->where('test_id', $testId)
+                ->where('estado', 'completada')
+                ->exists();
+        }
+
+        return view('prueba.show', compact('test', 'sesionActiva', 'yaCompletada'));
     }
 
     // ── Sesiones ──────────────────────────────────────────────────────────
 
     public function sesionesIndex()
     {
-        $sesiones = SesionPrueba::where('user_id', Auth::id())
-            ->with('test:id,nombre,codigo')
-            ->orderByDesc('created_at')
-            ->paginate(10);
+        $query = SesionPrueba::with(['test:id,nombre,codigo', 'user']);
+
+        if (Auth::user()->isEvaluador()) {
+            $sesiones = $query->orderByDesc('created_at')->paginate(10);
+        } else {
+            $sesiones = $query->where('user_id', Auth::id())->orderByDesc('created_at')->paginate(10);
+        }
+
         return view('sesiones.index', compact('sesiones'));
     }
 
     public function sesionesStore(Request $request)
     {
         $request->validate(['test_id' => 'required|exists:tests,id']);
+
+        if (Auth::user()->role === 'evaluado') {
+            $yaCompletada = SesionPrueba::where('user_id', Auth::id())
+                ->where('test_id', $request->test_id)
+                ->where('estado', 'completada')
+                ->exists();
+
+            if ($yaCompletada) {
+                return redirect()->back()->with('flash_error', 'Ya has completado esta prueba anteriormente.');
+            }
+        }
 
         $activa = SesionPrueba::where('user_id', Auth::id())
             ->where('test_id', $request->test_id)
@@ -247,10 +276,12 @@ class WebController extends Controller
 
     public function sesionesResultados(int $sesionId)
     {
-        $sesion = SesionPrueba::where('id', $sesionId)
-            ->where('user_id', Auth::id())
-            ->with(['test', 'resultados.categoria', 'user'])
-            ->firstOrFail();
+        $sesion = SesionPrueba::with(['test', 'resultados.categoria', 'user'])
+            ->findOrFail($sesionId);
+
+        if ($sesion->user_id !== Auth::id() && !Auth::user()->isEvaluador()) {
+            abort(403);
+        }
 
         $resumen = $this->pmaService->resumenSesion($sesion);
         return view('resultados.show', ['resumen' => $resumen, 'sesionId' => $sesionId]);
@@ -268,10 +299,12 @@ class WebController extends Controller
 
     public function descargarReporte(int $sesionId)
     {
-        $sesion = SesionPrueba::where('id', $sesionId)
-            ->where('user_id', Auth::id())
-            ->with(['test', 'resultados.categoria', 'user'])
-            ->firstOrFail();
+        $sesion = SesionPrueba::with(['test', 'resultados.categoria', 'user'])
+            ->findOrFail($sesionId);
+
+        if ($sesion->user_id !== Auth::id() && !Auth::user()->isEvaluador()) {
+            abort(403);
+        }
 
         $resumen  = $this->pmaService->resumenSesion($sesion);
         $destino  = storage_path('app/reportes');
@@ -284,10 +317,12 @@ class WebController extends Controller
 
     public function descargarReporteWord(int $sesionId)
     {
-        $sesion = SesionPrueba::where('id', $sesionId)
-            ->where('user_id', Auth::id())
-            ->with(['test', 'resultados.categoria', 'user'])
-            ->firstOrFail();
+        $sesion = SesionPrueba::with(['test', 'resultados.categoria', 'user'])
+            ->findOrFail($sesionId);
+
+        if ($sesion->user_id !== Auth::id() && !Auth::user()->isEvaluador()) {
+            abort(403);
+        }
 
         $resumen  = $this->pmaService->resumenSesion($sesion);
         $destino  = storage_path('app/reportes');
@@ -303,10 +338,11 @@ class WebController extends Controller
         $user = Auth::user();
         if (!$user->isEvaluador()) abort(403);
 
-        $totalSesiones    = SesionPrueba::count();
-        $completadas      = SesionPrueba::where('estado', 'completada')->count();
+        $totalSesiones    = SesionPrueba::whereHas('user', fn($q) => $q->where('role', 'evaluado'))->count();
+        $completadas      = SesionPrueba::where('estado', 'completada')->whereHas('user', fn($q) => $q->where('role', 'evaluado'))->count();
         $totalUsuarios    = User::where('role', 'evaluado')->count();
         $promediosPorFactor = \App\Models\Resultado::with('categoria:id,nombre,codigo')
+            ->whereHas('sesion.user', fn($q) => $q->where('role', 'evaluado'))
             ->select('categoria_id',
                 \Illuminate\Support\Facades\DB::raw('AVG(correctas) as promedio_correctas'),
                 \Illuminate\Support\Facades\DB::raw('AVG(puntaje_bruto) as promedio_puntaje'),

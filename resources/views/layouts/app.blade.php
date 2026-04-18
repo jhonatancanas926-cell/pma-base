@@ -228,6 +228,7 @@
             .nav-links .nav-link span { display: none; }
         }
     </style>
+    @livewireStyles
     @stack('styles')
 </head>
 <body>
@@ -238,16 +239,31 @@
         </a>
         @auth
         <div class="nav-links">
+            @if(session('user_role') === 'admin')
             <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                 <span>Dashboard</span>
             </a>
+            @endif
+
+            @if(session('user_role') === 'evaluado' || session('user_role') === 'admin' || session('user_role') === 'evaluador')
             <a href="{{ route('pruebas.index') }}" class="nav-link {{ request()->routeIs('pruebas.*') ? 'active' : '' }}">
                 <span>Pruebas</span>
             </a>
+            @endif
+
+            @if(session('user_role') === 'evaluado')
             <a href="{{ route('sesiones.index') }}" class="nav-link {{ request()->routeIs('sesiones.*') ? 'active' : '' }}">
                 <span>Mis Sesiones</span>
             </a>
+            @endif
+
             @if(session('user_role') === 'admin' || session('user_role') === 'evaluador')
+            <a href="{{ route('sesiones.index') }}" class="nav-link {{ request()->routeIs('sesiones.*') ? 'active' : '' }}">
+                <span>Sesiones Evaluados</span>
+            </a>
+            @endif
+
+            @if(session('user_role') === 'admin')
             <a href="{{ route('estadisticas') }}" class="nav-link {{ request()->routeIs('estadisticas') ? 'active' : '' }}">
                 <span>Estadísticas</span>
             </a>
@@ -276,6 +292,7 @@
         @yield('content')
     </main>
 
+    @livewireScripts
     <script>
         // Auto-hide flash messages
         setTimeout(() => {

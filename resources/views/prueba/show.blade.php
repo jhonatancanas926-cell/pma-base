@@ -33,7 +33,12 @@
         </div>
 
         <div style="margin-top:1.5rem">
-            @if($sesionActiva)
+            @if(isset($yaCompletada) && $yaCompletada)
+            <div class="alert alert-success mb-2">✅ Ya has completado esta prueba.</div>
+            <a href="{{ route('sesiones.index') }}" class="btn btn-outline btn-lg" style="width:100%;justify-content:center">
+                Ver mis resultados →
+            </a>
+            @elseif($sesionActiva)
             <div class="alert alert-info mb-2">⚡ Tienes una sesión en progreso para esta prueba.</div>
             <a href="{{ route('prueba.responder', $sesionActiva['id']) }}" class="btn btn-accent btn-lg" style="width:100%;justify-content:center">
                 Continuar evaluación →

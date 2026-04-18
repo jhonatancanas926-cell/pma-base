@@ -7,6 +7,9 @@
     <p class="text-muted">Panel de control — Sistema PMA-R · Uniempresarial</p>
 </div>
 
+@if(session('user_role') === 'admin')
+    <livewire:admin-dashboard />
+@else
 <!-- Stats -->
 <div class="grid-4 mb-3">
     <div class="card card-sm" style="border-left:4px solid #2e75b6">
@@ -104,5 +107,6 @@
         @endforelse
     </div>
 </div>
+@endif
 
 @endsection
