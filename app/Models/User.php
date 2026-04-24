@@ -44,6 +44,11 @@ class User extends Authenticatable
         return $this->hasMany(SesionPrueba::class);
     }
 
+    public function entrevista(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\Entrevista::class);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────
 
     public function isAdmin(): bool

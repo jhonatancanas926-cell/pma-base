@@ -228,17 +228,31 @@
     <!-- Acciones -->
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
         <div>
-            <div class="fw-bold text-navy">¿Deseas descargar el reporte completo?</div>
-            <div class="text-muted">Documento Word con análisis detallado y recomendaciones</div>
+            <div class="fw-bold text-navy">Descargar informe completo</div>
+            <div class="text-muted">Informe de Evaluación Psicológica — Ecotet Aviation Academy</div>
         </div>
-        <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
-            <a href="{{ route('sesiones.reporte', $sesionId) }}" class="btn btn-primary" target="_blank">
-                📄 Descargar PDF
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+            {{-- Informe Word Ecotet (plantilla oficial con todos los datos) --}}
+            <a href="{{ route('sesiones.reporte.word', $sesionId) }}"
+               style="padding:.65rem 1.25rem;background:#1a3a6b;color:#fff;border-radius:10px;font-weight:700;font-size:.875rem;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">
+                📝 Informe Word (Ecotet)
             </a>
-            <a href="{{ route('sesiones.reporte.word', $sesionId) }}" class="btn btn-primary">
-                📄 Word
+            {{-- PDF interno PMA-R --}}
+            <a href="{{ route('sesiones.reporte', $sesionId) }}" target="_blank"
+               style="padding:.65rem 1.25rem;background:#2e75b6;color:#fff;border-radius:10px;font-weight:600;font-size:.875rem;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">
+                📄 PDF PMA-R
             </a>
-            <a href="{{ route('dashboard') }}" class="btn btn-outline">← Volver al inicio</a>
+            @if($esEvaluador ?? false)
+            <a href="{{ route('sesiones.index') }}"
+               style="padding:.65rem 1.25rem;background:#eef1f5;color:#374151;border-radius:10px;font-weight:600;font-size:.875rem;text-decoration:none">
+                ← Volver a sesiones
+            </a>
+            @else
+            <a href="{{ route('dashboard') }}"
+               style="padding:.65rem 1.25rem;background:#eef1f5;color:#374151;border-radius:10px;font-weight:600;font-size:.875rem;text-decoration:none">
+                ← Inicio
+            </a>
+            @endif
         </div>
     </div>
 @endsection

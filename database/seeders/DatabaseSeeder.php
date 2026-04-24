@@ -13,38 +13,43 @@ class DatabaseSeeder extends Seeder
     {
         // ── Usuarios de prueba ─────────────────────────────────────────────
         User::firstOrCreate(['email' => 'admin@pma.test'], [
-            'name'     => 'Administrador',
+            'name' => 'Administrador',
             'password' => Hash::make('Admin1234!'),
-            'role'     => 'admin',
+            'role' => 'admin',
         ]);
 
         User::firstOrCreate(['email' => 'evaluador@pma.test'], [
-            'name'     => 'Evaluador Demo',
+            'name' => 'Evaluador Demo',
             'password' => Hash::make('Evaluador1234!'),
-            'role'     => 'evaluador',
+            'role' => 'evaluador',
         ]);
 
         User::firstOrCreate(['email' => 'evaluado@pma.test'], [
-            'name'      => 'Evaluado Demo',
-            'password'  => Hash::make('Evaluado1234!'),
-            'role'      => 'evaluado',
+            'name' => 'Evaluado Demo',
+            'password' => Hash::make('Evaluado1234!'),
+            'role' => 'evaluado',
             'documento' => '1234567890',
-            'programa'  => 'Administración de Empresas',
+            'programa' => 'Administración de Empresas',
         ]);
 
         // ── Crear estructura base del test PMA-R ──────────────────────────
         $test = Test::firstOrCreate(
             ['codigo' => 'PMA-R'],
             [
-                'nombre'       => 'PMA - Aptitudes Mentales Primarias (Revisada)',
-                'descripcion'  => 'Batería de Thurstone que evalúa las cinco aptitudes mentales primarias: Verbal, Espacial, Razonamiento, Numérico y Fluidez Verbal.',
-                'version'      => '1.0',
-                'tiempo_limite'=> 25,
-                'activo'       => true,
+                'nombre' => 'PMA - Aptitudes Mentales Primarias (Revisada)',
+                'descripcion' => 'Batería de Thurstone que evalúa las cinco aptitudes mentales primarias: Verbal, Espacial, Razonamiento, Numérico y Fluidez Verbal.',
+                'version' => '1.0',
+                'tiempo_limite' => 25,
+                'activo' => true,
             ]
         );
 
         $this->command->info("✅ Test PMA-R creado/verificado: ID {$test->id}");
+
+        // ── Cargar preguntas de entrevista psicosocial ────────────────────
+        $this->call(EntrevistaSeeder::class);
+        $this->command->info("✅ Secciones y preguntas de entrevista cargadas.");
+
         $this->command->info("");
         $this->command->info("📋 Usuarios de prueba creados:");
         $this->command->info("   admin@pma.test / Admin1234! (rol: admin)");

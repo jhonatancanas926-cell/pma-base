@@ -3,10 +3,11 @@
 
 @push('styles')
 <style>
-.quiz-header{background:var(--navy);color:white;padding:1rem 2rem;margin:-2rem -2rem 2rem;border-radius:0;}
+.quiz-header{background:var(--navy);color:white;padding:1rem 2rem;border-radius:0;margin:0 -2rem 1.5rem -2rem;}
 .progress-bar{height:6px;background:rgba(255,255,255,0.15);border-radius:3px;margin-top:0.75rem;overflow:hidden;}
 .progress-fill{height:100%;background:var(--accent);border-radius:3px;transition:width 0.4s ease;}
-.factor-tabs{display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap;}
+.sticky-container{position:sticky;top:0;z-index:100;background:#f8fafc;padding-top:1rem;margin-top:-1rem;padding-bottom:10px;border-bottom:1px solid var(--gray100);box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);}
+.factor-tabs{display:flex;gap:0.5rem;flex-wrap:wrap;}
 .factor-tab{padding:0.4rem 1rem;border-radius:20px;font-size:0.8rem;font-weight:600;cursor:pointer;border:2px solid var(--gray100);background:white;color:var(--gray500);transition:all 0.2s;}
 .factor-tab.active{background:var(--navy2);color:white;border-color:var(--navy2);}
 .factor-tab.done{background:#dcfce7;color:var(--green);border-color:#bbf7d0;}
@@ -33,34 +34,36 @@
 @endpush
 
 @section('content')
-<div class="quiz-header">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-            <div style="font-size:0.78rem;opacity:0.6;text-transform:uppercase;letter-spacing:.05em">Evaluación en curso</div>
-            <div style="font-family:'DM Serif Display',serif;font-size:1.2rem">PMA — Aptitudes Mentales Primarias</div>
+<div class="sticky-container">
+    <div class="quiz-header">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+                <div style="font-size:0.78rem;opacity:0.6;text-transform:uppercase;letter-spacing:.05em">Evaluación en curso</div>
+                <div style="font-family:'DM Serif Display',serif;font-size:1.2rem">PMA — Aptitudes Mentales Primarias</div>
+            </div>
+            <div class="timer" id="timer">{{ gmdate('i:s', ($sesion['test']['tiempo_limite'] ?? 25) * 60) }}</div>
         </div>
-        <div class="timer" id="timer">{{ gmdate('i:s', ($sesion['test']['tiempo_limite'] ?? 25) * 60) }}</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar" style="width:{{ ($respondidas / max($totalPreguntas, 1)) * 100 }}%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.78rem;opacity:0.6;margin-top:4px">
+            <span>{{ $respondidas }} respondidas</span>
+            <span>{{ $totalPreguntas - $respondidas }} restantes</span>
+        </div>
     </div>
-    <div class="progress-bar">
-        <div class="progress-fill" id="progressBar" style="width:{{ ($respondidas / max($totalPreguntas, 1)) * 100 }}%"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:0.78rem;opacity:0.6;margin-top:4px">
-        <span>{{ $respondidas }} respondidas</span>
-        <span>{{ $totalPreguntas - $respondidas }} restantes</span>
-    </div>
-</div>
 
-<!-- Factor tabs -->
-<div class="factor-tabs">
-    @foreach($categorias as $cat)
-    <button class="factor-tab {{ $categoriaActual === $cat['id'] ? 'active' : '' }}"
-            onclick="cambiarFactor({{ $cat['id'] }})">
-        {{ $cat['nombre'] }}
-        @if(($respuestasPorCategoria[$cat['id']] ?? 0) >= ($cat['preguntas_count'] ?? 0))
-        ✓
-        @endif
-    </button>
-    @endforeach
+    <!-- Factor tabs -->
+    <div class="factor-tabs">
+        @foreach($categorias as $cat)
+        <button class="factor-tab {{ $categoriaActual === $cat['id'] ? 'active' : '' }}"
+                onclick="cambiarFactor({{ $cat['id'] }})">
+            {{ $cat['nombre'] }}
+            @if(($respuestasPorCategoria[$cat['id']] ?? 0) >= ($cat['preguntas_count'] ?? 0))
+            ✓
+            @endif
+        </button>
+        @endforeach
+    </div>
 </div>
 
 <!-- Preguntas -->

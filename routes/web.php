@@ -18,6 +18,19 @@ Route::middleware('auth')->group(function () {
     // Dashboard
     Route::get('/dashboard', [WebController::class, 'dashboard'])->name('dashboard');
 
+    // ── Entrevista (aspirante) ────────────────────────────────────────────
+    Route::get('/entrevista', [WebController::class, 'entrevistaIndex'])->name('entrevista.index');
+    Route::post('/entrevista/responder', [WebController::class, 'entrevistaResponder'])->name('entrevista.responder');
+    Route::post('/entrevista/completar', [WebController::class, 'entrevistaCompletar'])->name('entrevista.completar');
+
+    // ── Evaluador: gestión de aspirantes ─────────────────────────────────
+    Route::get('/evaluador/aspirantes', [WebController::class, 'evaluadorAspirantesIndex'])->name('evaluador.aspirantes');
+    Route::get('/evaluador/aspirantes/{userId}', [WebController::class, 'evaluadorEntrevistaShow'])->name('evaluador.entrevista.show');
+    Route::post('/evaluador/aspirantes/{userId}/responder', [WebController::class, 'evaluadorEditarRespuesta'])->name('evaluador.entrevista.responder');
+    Route::post('/evaluador/aspirantes/{userId}/estado', [WebController::class, 'evaluadorCambiarEstado'])->name('evaluador.entrevista.estado');
+    Route::post('/evaluador/aspirantes/{userId}/habilitar-pma', [WebController::class, 'evaluadorHabilitarPma'])->name('evaluador.entrevista.habilitar_pma');
+
+
     // Pruebas
     Route::get('/pruebas', [WebController::class, 'pruebasIndex'])->name('pruebas.index');
     Route::get('/pruebas/{id}', [WebController::class, 'pruebasShow'])->name('pruebas.show');

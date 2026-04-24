@@ -228,7 +228,6 @@
             .nav-links .nav-link span { display: none; }
         }
     </style>
-    @livewireStyles
     @stack('styles')
 </head>
 <body>
@@ -239,33 +238,28 @@
         </a>
         @auth
         <div class="nav-links">
-            @if(session('user_role') === 'admin')
             <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                 <span>Dashboard</span>
             </a>
-            @endif
-
-            @if(session('user_role') === 'evaluado' || session('user_role') === 'admin' || session('user_role') === 'evaluador')
             <a href="{{ route('pruebas.index') }}" class="nav-link {{ request()->routeIs('pruebas.*') ? 'active' : '' }}">
                 <span>Pruebas</span>
             </a>
-            @endif
-
-            @if(session('user_role') === 'evaluado')
+            @if(in_array(session('user_role'), ['admin','evaluador']))
             <a href="{{ route('sesiones.index') }}" class="nav-link {{ request()->routeIs('sesiones.*') ? 'active' : '' }}">
-                <span>Mis Sesiones</span>
+                <span>Sesiones</span>
             </a>
             @endif
-
-            @if(session('user_role') === 'admin' || session('user_role') === 'evaluador')
-            <a href="{{ route('sesiones.index') }}" class="nav-link {{ request()->routeIs('sesiones.*') ? 'active' : '' }}">
-                <span>Sesiones Evaluados</span>
+            @if(in_array(session('user_role'), ['admin','evaluador']))
+            <a href="{{ route('evaluador.aspirantes') }}" class="nav-link {{ request()->routeIs('evaluador.*') ? 'active' : '' }}">
+                <span>Entrevistas</span>
             </a>
-            @endif
-
-            @if(session('user_role') === 'admin')
             <a href="{{ route('estadisticas') }}" class="nav-link {{ request()->routeIs('estadisticas') ? 'active' : '' }}">
                 <span>Estadísticas</span>
+            </a>
+            @endif
+            @if(session('user_role') === 'evaluado')
+            <a href="{{ route('entrevista.index') }}" class="nav-link {{ request()->routeIs('entrevista.*') ? 'active' : '' }}">
+                <span>Entrevista</span>
             </a>
             @endif
             <span class="text-muted" style="color:#aaa;font-size:0.8rem;padding:0 0.5rem">
@@ -292,7 +286,6 @@
         @yield('content')
     </main>
 
-    @livewireScripts
     <script>
         // Auto-hide flash messages
         setTimeout(() => {
