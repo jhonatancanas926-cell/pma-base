@@ -8,6 +8,10 @@ use App\Services\InformeEvaluacionService;
 use App\Services\PdfReporteService;
 use App\Services\PmaService;
 use App\Models\Entrevista;
+use App\Models\EvaluadorPerfil;
+use App\Models\InformeEvaluador;
+use App\Models\SeguimientoAlumno;
+use App\Services\CondicionesAutoService;
 use App\Models\EntrevistaSeccion;
 use App\Models\EntrevistaRespuesta;
 use App\Models\SesionPrueba;
@@ -23,6 +27,7 @@ class WebController extends Controller
         private readonly PmaService              $pmaService,
         private readonly DocumentoService        $documentoService,
         private readonly InformeEvaluacionService $informeService,
+        private readonly CondicionesAutoService $condicionesAuto,
         private readonly PdfReporteService $pdfReporteService,
     ) {}
 
@@ -138,26 +143,30 @@ class WebController extends Controller
 
     public function pruebasIndex()
     {
+        $user = Auth::user();
         $tests = Test::where('activo', true)->withCount('preguntas')->with('categorias')->get();
-        return view('prueba.index', compact('tests'));
+
+        $entrevista = Entrevista::where('user_id', $user->id)->first();
+        $entrevistaCompletada = $entrevista?->estado === 'completada';
+        $pmaHabilitado = $entrevista?->pma_habilitado ?? false;
+
+        return view('prueba.index', compact('tests', 'entrevistaCompletada', 'pmaHabilitado'));
     }
 
     public function pruebasShow(int $testId)
     {
-        if (Auth::user()->isEvaluado()) {
-            $entrevista = Entrevista::where('user_id', Auth::id())->first();
-            if (!$entrevista || $entrevista->estado !== 'completada' || !$entrevista->pma_habilitado) {
-                return redirect()->route('dashboard')->with('error', 'Aún no tienes acceso a esta prueba.');
-            }
-        }
-
+        $user = Auth::user();
         $test = Test::with(['categorias' => fn($q) => $q->withCount('preguntas')])->withCount('preguntas')->findOrFail($testId)->toArray();
-        $sesionActiva = SesionPrueba::where('user_id', Auth::id())
+        $sesionActiva = SesionPrueba::where('user_id', $user->id)
             ->where('test_id', $testId)
             ->where('estado', 'en_progreso')
             ->first()?->toArray();
 
-        return view('prueba.show', compact('test', 'sesionActiva'));
+        $entrevista = Entrevista::where('user_id', $user->id)->first();
+        $entrevistaCompletada = $entrevista?->estado === 'completada';
+        $pmaHabilitado = $entrevista?->pma_habilitado ?? false;
+
+        return view('prueba.show', compact('test', 'sesionActiva', 'entrevistaCompletada', 'pmaHabilitado'));
     }
 
     // ── Sesiones ──────────────────────────────────────────────────────────
@@ -185,13 +194,6 @@ class WebController extends Controller
     {
         $request->validate(['test_id' => 'required|exists:tests,id']);
 
-        if (Auth::user()->isEvaluado()) {
-            $entrevista = Entrevista::where('user_id', Auth::id())->first();
-            if (!$entrevista || $entrevista->estado !== 'completada' || !$entrevista->pma_habilitado) {
-                return redirect()->route('dashboard')->with('error', 'Aún no tienes acceso a esta prueba.');
-            }
-        }
-
         $activa = SesionPrueba::where('user_id', Auth::id())
             ->where('test_id', $request->test_id)
             ->where('estado', 'en_progreso')
@@ -199,16 +201,6 @@ class WebController extends Controller
 
         if ($activa) {
             return redirect()->route('prueba.responder', $activa->id);
-        }
-
-        $completada = SesionPrueba::where('user_id', Auth::id())
-            ->where('test_id', $request->test_id)
-            ->where('estado', 'completada')
-            ->first();
-
-        if ($completada) {
-            return redirect()->route('sesiones.resultados', $completada->id)
-                ->with('warning', 'Ya has completado esta prueba anteriormente.');
         }
 
         $sesion = SesionPrueba::create([
@@ -429,7 +421,6 @@ class WebController extends Controller
             'id'            => $entrevista->id,
             'estado'        => $entrevista->estado,
             'completada_en' => $entrevista->completada_en,
-            'pma_habilitado'=> $entrevista->pma_habilitado,
         ];
 
         return view('entrevista.index', [
@@ -483,7 +474,7 @@ class WebController extends Controller
             'completada_en'  => now(),
         ]);
 
-        return redirect()->route('dashboard')->with('flash_success', '¡Entrevista completada! Ya puedes acceder a la prueba PMA-R.');
+        return redirect()->route('dashboard')->with('flash_success', '¡Entrevista completada! Por favor, espera a que el evaluador habilite tu acceso a la prueba PMA-R.');
     }
 
     // ── Evaluador ─────────────────────────────────────────────────────────
@@ -501,11 +492,14 @@ class WebController extends Controller
 
         $data = [
             'data'         => $entrevistas->map(fn($e) => [
-                'user_id'       => $e->user_id,
-                'estado'        => $e->estado,
-                'completada_en' => $e->completada_en,
-                'pma_habilitado'=> $e->pma_habilitado,
-                'user'          => [
+                'user_id'          => $e->user_id,
+                'estado'           => $e->estado,
+                'completada_en'    => $e->completada_en,
+                'ultima_sesion_id' => SesionPrueba::where('user_id', $e->user_id)
+                    ->where('estado', 'completada')
+                    ->latest()
+                    ->value('id'),
+                'user'             => [
                     'name'      => $e->user->name,
                     'email'     => $e->user->email,
                     'documento' => $e->user->documento,
@@ -558,7 +552,7 @@ class WebController extends Controller
 
         return view('evaluador.entrevista_show', [
             'aspirante'  => $aspirante->toArray(),
-            'entrevista' => ['estado' => $entrevista->estado, 'completada_en' => $entrevista->completada_en, 'pma_habilitado' => $entrevista->pma_habilitado],
+            'entrevista' => ['estado' => $entrevista->estado, 'completada_en' => $entrevista->completada_en],
             'secciones'  => $seccionesData,
             'userId'     => $userId,
         ]);
@@ -601,18 +595,344 @@ class WebController extends Controller
         if (!$user->isEvaluador()) abort(403);
 
         $entrevista = Entrevista::where('user_id', $userId)->firstOrFail();
-        $nuevoEstado = !$entrevista->pma_habilitado;
         $entrevista->update([
-            'pma_habilitado' => $nuevoEstado,
+            'pma_habilitado' => !$entrevista->pma_habilitado,
         ]);
 
-        $mensaje = $nuevoEstado 
-            ? 'Acceso a la prueba PMA-R habilitado correctamente.' 
-            : 'Acceso a la prueba PMA-R deshabilitado.';
-
-        return redirect()->back()->with('flash_success', $mensaje);
+        return back()->with('flash_success', 'Estado de la prueba PMA-R actualizado.');
     }
 
+    // ── Informe Ecotet Aviation ───────────────────────────────────────────
+
+    public function descargarInformeEcotet(int $sesionId)
+    {
+        $user   = Auth::user();
+        $query  = SesionPrueba::with(['test', 'resultados.categoria', 'user']);
+        $sesion = $user->isEvaluador()
+            ? $query->findOrFail($sesionId)
+            : $query->where('user_id', $user->id)->findOrFail($sesionId);
+
+        $resumen  = $this->pmaService->resumenSesion($sesion);
+        $destino  = storage_path('app/reportes');
+        $rutaDocx = $this->informeService->generar($sesion, $resumen, $destino);
+
+        $nombre = 'Informe_Ecotet_' . str_replace(' ', '_', $sesion->user->name) . '_' . now()->format('Ymd') . '.docx';
+
+        return response()->download($rutaDocx, $nombre)->deleteFileAfterSend(true);
+    }
+
+    // ── Perfil del evaluador ─────────────────────────────────────────────────
+
+    public function evaluadorPerfilShow()
+    {
+        $user   = Auth::user();
+        if (!$user->isEvaluador()) abort(403);
+        $perfil = EvaluadorPerfil::where('user_id', $user->id)->first();
+        return view('evaluador.perfil', compact('perfil'));
+    }
+
+    public function evaluadorPerfilUpdate(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user->isEvaluador()) abort(403);
+
+        $request->validate([
+            'nombre_completo'     => 'nullable|string|max:200',
+            'tarjeta_profesional' => 'nullable|string|max:100',
+            'firma'               => 'nullable|image|max:2048',
+        ]);
+
+        $perfil = EvaluadorPerfil::firstOrNew(['user_id' => $user->id]);
+        $perfil->nombre_completo     = $request->nombre_completo;
+        $perfil->tarjeta_profesional = $request->tarjeta_profesional;
+
+        if ($request->hasFile('firma')) {
+            if ($perfil->firma_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($perfil->firma_path);
+            }
+            $perfil->firma_path = $request->file('firma')->store('firmas', 'public');
+        }
+        $perfil->save();
+
+        return redirect()->route('evaluador.perfil')->with('flash_success', 'Perfil actualizado correctamente.');
+    }
+
+    // ── Vista 3 pestañas (entrevista + campos evaluador + seguimiento) ────────
+
+    public function evaluadorInformeShow(int $sesionId)
+    {
+        $user = Auth::user();
+        if (!$user->isEvaluador()) abort(403);
+
+        $sesion   = SesionPrueba::with(['user', 'resultados.categoria', 'test'])->findOrFail($sesionId);
+        $aspirante = $sesion->user->toArray();
+
+        // Secciones de entrevista
+        $entrevista = Entrevista::firstOrCreate(
+            ['user_id' => $sesion->user_id],
+            ['estado' => 'pendiente']
+        );
+        $secciones = \App\Models\EntrevistaSeccion::where('activa', true)
+            ->orderBy('orden')
+            ->with(['preguntas' => fn($q) => $q->orderBy('orden')])
+            ->get();
+        $respuestasGuardadas = \App\Models\EntrevistaRespuesta::where('entrevista_id', $entrevista->id)
+            ->pluck('respuesta', 'pregunta_id');
+        $seccionesData = $secciones->map(fn($s) => [
+            'id'        => $s->id,
+            'nombre'    => $s->nombre,
+            'slug'      => $s->slug,
+            'tipo'      => $s->tipo,
+            'preguntas' => $s->preguntas->map(fn($p) => [
+                'id'             => $p->id,
+                'enunciado'      => $p->enunciado,
+                'tipo_respuesta' => $p->tipo_respuesta,
+                'opciones'       => $p->opciones ?? [],
+                'obligatoria'    => $p->obligatoria,
+                'orden'          => $p->orden,
+                'clave_word'     => $p->clave_word,
+                'respuesta'      => $respuestasGuardadas[$p->id] ?? null,
+            ])->toArray(),
+        ])->toArray();
+
+        // Informe evaluador — auto-llenar condiciones desde PMA-R si es nuevo
+        $informe = InformeEvaluador::firstOrNew(
+            ['sesion_id' => $sesionId],
+            ['evaluador_id' => $user->id]
+        );
+        if (!$informe->exists && $sesion->resultados->isNotEmpty()) {
+            $autoCondiciones = $this->condicionesAuto->generarDesdeResultados(
+                $sesion->resultados->map(fn($r) => [
+                    'codigo' => $r->categoria->codigo,
+                    'nivel'  => $r->nivel,
+                ])->toArray()
+            );
+            foreach ($autoCondiciones as $campo => $valor) {
+                $informe->$campo = $valor;
+            }
+            $informe->save();
+        }
+
+        // Seguimiento
+        $seguimiento = SeguimientoAlumno::firstOrNew(
+            ['sesion_id' => $sesionId],
+            ['evaluador_id' => $user->id]
+        );
+
+        return view('evaluador.informe_show', [
+            'sesion'     => $sesion,
+            'sesionId'   => $sesionId,
+            'aspirante'  => $aspirante,
+            'secciones'  => $seccionesData,
+            'informe'    => $informe,
+            'seguimiento'=> $seguimiento,
+        ]);
+    }
+
+    public function evaluadorInformeGuardar(Request $request, int $sesionId)
+    {
+        $user = Auth::user();
+        if (!$user->isEvaluador()) abort(403);
+
+        $request->validate([
+            'campo' => 'required|string',
+            'valor' => 'nullable|string',
+        ]);
+
+        $informe = InformeEvaluador::firstOrCreate(
+            ['sesion_id' => $sesionId],
+            ['evaluador_id' => $user->id]
+        );
+
+        $campo = $request->campo;
+        // Whitelist de campos permitidos
+        if (in_array($campo, $informe->getFillable())) {
+            $informe->$campo = $request->valor;
+            $informe->save();
+        }
+
+        return response()->json(['message' => 'Guardado.']);
+    }
+
+    public function evaluadorSeguimientoShow(int $sesionId)
+    {
+        $user = Auth::user();
+        if (!$user->isEvaluador()) abort(403);
+        // Redirige a la vista de informe en la pestaña de seguimiento
+        return redirect()->route('evaluador.informe.show', $sesionId);
+    }
+
+    public function evaluadorSeguimientoGuardar(Request $request, int $sesionId)
+    {
+        $user = Auth::user();
+        if (!$user->isEvaluador()) abort(403);
+
+        $request->validate([
+            'campo' => 'required|string',
+            'valor' => 'nullable|string',
+        ]);
+
+        $seguimiento = SeguimientoAlumno::firstOrCreate(
+            ['sesion_id' => $sesionId],
+            ['evaluador_id' => $user->id]
+        );
+
+        $campo = $request->campo;
+        if (in_array($campo, $seguimiento->getFillable())) {
+            $seguimiento->$campo = $request->valor;
+            $seguimiento->save();
+        }
+
+        return response()->json(['message' => 'Guardado.']);
+    }
+
+    public function evaluadorInformePreview(int $sesionId)
+    {
+        $user = Auth::user();
+        if (!$user->isEvaluador()) abort(403);
+
+        $sesion  = SesionPrueba::with(['user', 'resultados.categoria', 'test'])->findOrFail($sesionId);
+        $informe = InformeEvaluador::where('sesion_id', $sesionId)->first()
+                   ?? new InformeEvaluador();
+
+        $resumen         = $this->pmaService->resumenSesion($sesion);
+        $perfilEvaluador = EvaluadorPerfil::where('user_id', $user->id)->first();
+        $firmaEvaluador  = $perfilEvaluador?->firma_path;
+
+        // Compilar datos para preview (misma lógica que PDF)
+        $entrevista = Entrevista::where('user_id', $sesion->user_id)
+            ->with('respuestas.pregunta')->first();
+        $resp = $entrevista ? $entrevista->respuestasIndexadas() : [];
+
+        $datos = $this->compilarDatosInforme($sesion, $resumen, $resp);
+
+        return view('evaluador.informe_preview', compact(
+            'sesion', 'sesionId', 'informe', 'datos',
+            'perfilEvaluador', 'firmaEvaluador', 'resumen'
+        ));
+    }
+
+    public function evaluadorInformePdf(int $sesionId)
+    {
+        $user = Auth::user();
+        if (!$user->isEvaluador()) abort(403);
+
+        $sesion  = SesionPrueba::with(['user', 'resultados.categoria', 'test'])->findOrFail($sesionId);
+        $informe = InformeEvaluador::where('sesion_id', $sesionId)->firstOrNew(['sesion_id' => $sesionId]);
+
+        $resumen         = $this->pmaService->resumenSesion($sesion);
+        $perfilEvaluador = EvaluadorPerfil::where('user_id', $user->id)->first();
+
+        $entrevista = Entrevista::where('user_id', $sesion->user_id)
+            ->with('respuestas.pregunta')->first();
+        $resp  = $entrevista ? $entrevista->respuestasIndexadas() : [];
+        $datos = $this->compilarDatosInforme($sesion, $resumen, $resp);
+
+        $destino  = storage_path('app/reportes');
+        if (!is_dir($destino)) mkdir($destino, 0755, true);
+
+        $rutaPdf = $this->informeService->generar(
+            $sesion, $resumen, $informe, $perfilEvaluador, $datos, $destino
+        );
+        $nombre = 'Informe_Ecotet_' . str_replace(' ', '_', $sesion->user->name) . '_' . now()->format('Ymd') . '.pdf';
+
+        return response()->download($rutaPdf, $nombre, [
+            'Content-Type' => 'application/pdf',
+        ])->deleteFileAfterSend(true);
+    }
+
+    public function servePlantillaImage(string $filename)
+    {
+        $path = storage_path('app/plantillas/' . $filename);
+        if (!file_exists($path)) {
+            abort(404);
+        }
+        return response()->file($path);
+    }
+
+    /** Compila el array de datos para preview y PDF */
+    private function compilarDatosInforme(SesionPrueba $sesion, array $resumen, array $resp): array
+    {
+        $siNo = function(string $val): array {
+            $v = mb_strtoupper(trim($val));
+            if (in_array($v, ['SÍ','SI','S'])) return ['✓', ''];
+            if (in_array($v, ['NO','N']))       return ['', '✓'];
+            return ['', ''];
+        };
+
+        $datos = [
+            'NOMBRE_COMPLETO'  => $resp['nombre_completo']  ?? $sesion->user->name ?? '',
+            'EDAD'             => $resp['edad']             ?? ($sesion->user->edad ?? ''),
+            'ESTADO_CIVIL'     => $resp['estado_civil']     ?? '',
+            'DOCUMENTO'        => $resp['documento']        ?? ($sesion->user->documento ?? ''),
+            'TELEFONO'         => $resp['telefono']         ?? '',
+            'DIRECCION'        => $resp['direccion']        ?? '',
+            'FECHA_EVALUACION' => $resp['fecha_evaluacion'] ?? now()->format('d/m/Y'),
+            'DATOS_FAMILIARES' => implode(' | ', array_filter([
+                $resp['familia_padre'] ?? null, $resp['familia_madre'] ?? null,
+                $resp['familia_hermanos'] ?? null, $resp['familia_convivientes'] ?? null,
+            ])),
+            'HISTORIA_EDUCATIVA' => implode(' | ', array_filter([
+                $resp['edu_bachillerato'] ?? null, $resp['edu_tecnico'] ?? null,
+                $resp['edu_universitario'] ?? null, $resp['edu_otros'] ?? null,
+            ])),
+            'EXPERIENCIA_LABORAL' => implode(' | ', array_filter([
+                $resp['lab_empresa_reciente'] ?? null, $resp['lab_tiempo_reciente'] ?? null,
+                $resp['lab_funciones'] ?? null, $resp['lab_experiencia_previa'] ?? null,
+            ])),
+            'MOTIVACION' => implode(' | ', array_filter([
+                $resp['mot_razon'] ?? null, $resp['mot_conocimiento_rol'] ?? null,
+                $resp['mot_atencion_cliente_desc'] ?? null, $resp['mot_proyeccion'] ?? null,
+            ])),
+        ];
+
+        // AMF
+        foreach ([
+            'AMF_CANCER'=>'amf_cáncer','AMF_AUTOINMUNES'=>'amf_enfermedades_autoinmunes',
+            'AMF_DIABETES'=>'amf_diabetes','AMF_ARTRITIS'=>'amf_artritis',
+            'AMF_HIPERTENSION'=>'amf_hipertension_arterial','AMF_RENALES'=>'amf_enfermedades_renales',
+            'AMF_CARDIOPATIAS'=>'amf_cardiopatias','AMF_MENTALES'=>'amf_enfermedades_mentales',
+            'AMF_ALERGIAS'=>'amf_alergias','AMF_NEUROLOGICAS'=>'amf_enfermedades_neurologicas',
+            'AMF_ASMA'=>'amf_asma',
+        ] as $k => $c) {
+            [$si,$no] = $siNo($resp[$c] ?? '');
+            $datos["{$k}_SI"] = $si; $datos["{$k}_NO"] = $no;
+        }
+        // AMA
+        foreach ([
+            'AMA_HIPERTENSION'=>'ama_hipertension','AMA_TUMOR'=>'ama_tumor_cerebral',
+            'AMA_CANCER'=>'ama_cancer','AMA_CONVULSIVOS'=>'ama_convulsivos',
+            'AMA_DIABETES'=>'ama_diabetes','AMA_ETS'=>'ama_ets_vih',
+            'AMA_RENALES'=>'ama_renal','AMA_ALCOHOLISMO'=>'ama_alcoholismo',
+            'AMA_HEPATICAS'=>'ama_hepatica','AMA_ANSIEDAD'=>'ama_ansiedad',
+            'AMA_CARDIACAS'=>'ama_cardiaca','AMA_DEPRESIVOS'=>'ama_depresion',
+            'AMA_RESPIRATORIAS'=>'ama_respiratoria','AMA_TDAH'=>'ama_tdah',
+            'AMA_TCE'=>'ama_tce','AMA_APRENDIZAJE'=>'ama_aprendizaje',
+        ] as $k => $c) {
+            [$si,$no] = $siNo($resp[$c] ?? '');
+            $datos["{$k}_SI"] = $si; $datos["{$k}_NO"] = $no;
+        }
+        // Toxicológicos
+        [$fs,$fn] = $siNo($resp['tox_fuma'] ?? ''); [$as,$an] = $siNo($resp['tox_alcohol'] ?? '');
+        $datos += [
+            'TOX_FUMA_SI'=>$fs,'TOX_FUMA_NO'=>$fn,
+            'TOX_CIGARRILLOS'=>$resp['tox_cigarrillos_dia'] ?? '',
+            'TOX_ANIOS'=>$resp['tox_anios_fumando'] ?? '',
+            'TOX_ALCOHOL_SI'=>$as,'TOX_ALCOHOL_NO'=>$an,
+            'TOX_FRECUENCIA'=>$resp['tox_alcohol_frecuencia'] ?? '',
+            'TOX_SUSTANCIAS'=>$resp['tox_sustancias_desc'] ?? '',
+        ];
+        // PMA-R
+        $porFactor = collect($resumen['resultados'] ?? [])->keyBy('codigo');
+        foreach (['PMA_V'=>'FACTOR_V','PMA_E'=>'FACTOR_E','PMA_R'=>'FACTOR_R','PMA_N'=>'FACTOR_N','PMA_F'=>'FACTOR_F'] as $k=>$c) {
+            $r = $porFactor[$c] ?? null;
+            $datos["{$k}_SCORE"] = $r['puntaje_bruto'] ?? ''; $datos["{$k}_INT"] = $r['nivel'] ?? '';
+        }
+        $g = $resumen['indice_global'] ?? null;
+        $datos['PMA_GLOBAL_SCORE'] = $g['puntaje'] ?? ''; $datos['PMA_GLOBAL_INT'] = $g['nivel'] ?? '';
+
+        return $datos;
+    }
 
     public function estadisticas()
     {

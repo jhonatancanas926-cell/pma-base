@@ -232,22 +232,22 @@
             <div class="text-muted">Informe de Evaluación Psicológica — Ecotet Aviation Academy</div>
         </div>
         <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
-            {{-- Informe Word Ecotet (plantilla oficial con todos los datos) --}}
-            <a href="{{ route('sesiones.reporte.word', $sesionId) }}"
-               style="padding:.65rem 1.25rem;background:#1a3a6b;color:#fff;border-radius:10px;font-weight:700;font-size:.875rem;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">
-                📝 Informe Word (Ecotet)
-            </a>
-            {{-- PDF interno PMA-R --}}
-            <a href="{{ route('sesiones.reporte', $sesionId) }}" target="_blank"
-               style="padding:.65rem 1.25rem;background:#2e75b6;color:#fff;border-radius:10px;font-weight:600;font-size:.875rem;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">
-                📄 PDF PMA-R
-            </a>
             @if($esEvaluador ?? false)
+            {{-- Evaluador: accede al informe completo con 3 pestañas --}}
+            <a href="{{ route('evaluador.informe.show', $sesionId) }}"
+               style="padding:.65rem 1.25rem;background:#1a3a6b;color:#fff;border-radius:10px;font-weight:700;font-size:.875rem;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">
+                ✏️ Ver / Completar informe
+            </a>
             <a href="{{ route('sesiones.index') }}"
                style="padding:.65rem 1.25rem;background:#eef1f5;color:#374151;border-radius:10px;font-weight:600;font-size:.875rem;text-decoration:none">
-                ← Volver a sesiones
+                ← Sesiones
             </a>
             @else
+            {{-- Aspirante: solo PDF de resultados PMA-R --}}
+            <a href="{{ route('sesiones.reporte', $sesionId) }}" target="_blank"
+               style="padding:.65rem 1.25rem;background:#2e75b6;color:#fff;border-radius:10px;font-weight:600;font-size:.875rem;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem">
+                📄 Descargar PDF de resultados
+            </a>
             <a href="{{ route('dashboard') }}"
                style="padding:.65rem 1.25rem;background:#eef1f5;color:#374151;border-radius:10px;font-weight:600;font-size:.875rem;text-decoration:none">
                 ← Inicio

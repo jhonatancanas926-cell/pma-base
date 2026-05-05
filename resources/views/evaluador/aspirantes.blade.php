@@ -70,8 +70,14 @@
                 </td>
                 <td>
                     <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                        {{-- Ir a la vista unificada de 3 pestañas si tiene sesión, si no solo entrevista --}}
+                        @if(!empty($item['ultima_sesion_id']))
+                        <a href="{{ route('evaluador.informe.show', $item['ultima_sesion_id']) }}"
+                           class="btn-sm btn-primary-sm">✏️ Informe completo</a>
+                        @else
                         <a href="{{ route('evaluador.entrevista.show', $item['user_id']) }}"
-                           class="btn-sm btn-primary-sm">👁 Ver / Editar</a>
+                           class="btn-sm btn-primary-sm">👁 Ver entrevista</a>
+                        @endif
 
                         @if($estado !== 'completada')
                         <form method="POST" action="{{ route('evaluador.entrevista.estado', $item['user_id']) }}"
@@ -86,20 +92,6 @@
                             @csrf
                             <input type="hidden" name="estado" value="en_progreso">
                             <button type="submit" class="btn-sm btn-warning-sm">↩ Revertir</button>
-                        </form>
-                        @endif
-
-                        @if(!($item['pma_habilitado'] ?? false))
-                        <form method="POST" action="{{ route('evaluador.entrevista.habilitar_pma', $item['user_id']) }}"
-                              onsubmit="return confirm('¿Habilitar acceso a la prueba PMA-R para este aspirante?')">
-                            @csrf
-                            <button type="submit" class="btn-sm btn-primary-sm" style="background:#1a3a6b">🔓 Habilitar PMA-R</button>
-                        </form>
-                        @else
-                        <form method="POST" action="{{ route('evaluador.entrevista.habilitar_pma', $item['user_id']) }}"
-                              onsubmit="return confirm('¿Deshabilitar el acceso a la prueba PMA-R para este aspirante?')">
-                            @csrf
-                            <button type="submit" class="btn-sm btn-success-sm">✅ PMA-R Habilitada</button>
                         </form>
                         @endif
                     </div>

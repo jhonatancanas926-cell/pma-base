@@ -91,14 +91,29 @@
                                    style="padding:.3rem .8rem;background:#1a3a6b;color:#fff;border-radius:7px;font-size:.75rem;font-weight:600;text-decoration:none;white-space:nowrap">
                                     📊 Resultados
                                 </a>
-                                <a href="{{ route('sesiones.reporte.word', $sesion->id) }}"
-                                   style="padding:.3rem .8rem;background:#2e75b6;color:#fff;border-radius:7px;font-size:.75rem;font-weight:600;text-decoration:none;white-space:nowrap">
-                                    📄 Informe Word
-                                </a>
+                                @if($esEvaluador)
+                                @php
+                                    $entrevista = \App\Models\Entrevista::where('user_id', $sesion->user_id)->first();
+                                    $pmaHabilitado = $entrevista ? $entrevista->pma_habilitado : false;
+                                @endphp
+                                <form method="POST" action="{{ route('evaluador.entrevista.habilitar_pma', $sesion->user_id) }}" style="margin:0;">
+                                    @csrf
+                                    @if($pmaHabilitado)
+                                        <button type="submit" style="padding:.3rem .8rem;background:#107c10;color:#fff;border:none;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap" onclick="return confirm('¿Deshabilitar el acceso a la prueba PMA-R para este aspirante?')">
+                                            ✅ PMA-R Habilitada
+                                        </button>
+                                    @else
+                                        <button type="submit" style="padding:.3rem .8rem;background:#e8a020;color:#fff;border:none;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap" onclick="return confirm('¿Habilitar acceso a la prueba PMA-R para este aspirante?')">
+                                            🔓 Habilitar PMA-R
+                                        </button>
+                                    @endif
+                                </form>
+                                @else
                                 <a href="{{ route('sesiones.reporte', $sesion->id) }}" target="_blank"
                                    style="padding:.3rem .8rem;background:#eef1f5;color:#374151;border-radius:7px;font-size:.75rem;font-weight:600;text-decoration:none;white-space:nowrap">
                                     📄 PDF
                                 </a>
+                                @endif
                             @elseif($sesion->estado === 'en_progreso' && !$esEvaluador)
                                 <a href="{{ route('prueba.responder', $sesion->id) }}"
                                    style="padding:.3rem .8rem;background:#e8a020;color:#fff;border-radius:7px;font-size:.75rem;font-weight:600;text-decoration:none;white-space:nowrap">

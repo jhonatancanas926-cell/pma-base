@@ -23,7 +23,17 @@
                 </div>
             </div>
         </div>
+        @php
+            $puedeIniciar = ($entrevistaCompletada ?? false) && ($pmaHabilitado ?? false);
+        @endphp
+        @if($puedeIniciar)
         <a href="{{ route('pruebas.show', $test->id) }}" class="btn btn-primary btn-sm">Ver detalles</a>
+        @else
+        <span title="{{ ($entrevistaCompletada ?? false) ? 'Esperando habilitación del evaluador' : 'Completa la entrevista primero' }}"
+            style="padding:.35rem .9rem;background:#eef1f5;color:#6b7a8d;border-radius:8px;font-size:.78rem;font-weight:600;cursor:not-allowed">
+            🔒 Bloqueado
+        </span>
+        @endif
     </div>
     @empty
     <div class="text-center text-muted" style="padding:2rem">

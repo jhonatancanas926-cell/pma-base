@@ -200,7 +200,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           onsubmit="return confirm('¿Confirmas completar la entrevista? Ya no podrás modificar las respuestas.')">
         @csrf
         <button type="submit" class="btn-completar">
-            ✅ Completar entrevista y desbloquear PMA-R
+            ✅ Finalizar entrevista
         </button>
     </form>
 </div>

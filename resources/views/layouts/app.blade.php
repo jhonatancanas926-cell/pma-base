@@ -241,17 +241,21 @@
             <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                 <span>Dashboard</span>
             </a>
+            @if(session('user_role') === 'evaluado')
             <a href="{{ route('pruebas.index') }}" class="nav-link {{ request()->routeIs('pruebas.*') ? 'active' : '' }}">
                 <span>Pruebas</span>
             </a>
-            @if(in_array(session('user_role'), ['admin','evaluador']))
-            <a href="{{ route('sesiones.index') }}" class="nav-link {{ request()->routeIs('sesiones.*') ? 'active' : '' }}">
-                <span>Sesiones</span>
-            </a>
             @endif
+            <a href="{{ route('sesiones.index') }}" class="nav-link {{ request()->routeIs('sesiones.*') ? 'active' : '' }}">
+                {{-- Evaluadores ven "Sesiones" (de todos); evaluados ven "Mis Sesiones" --}}
+                <span>{{ in_array(session('user_role'), ['admin','evaluador']) ? 'Sesiones' : 'Mis Sesiones' }}</span>
+            </a>
             @if(in_array(session('user_role'), ['admin','evaluador']))
             <a href="{{ route('evaluador.aspirantes') }}" class="nav-link {{ request()->routeIs('evaluador.*') ? 'active' : '' }}">
                 <span>Entrevistas</span>
+            </a>
+            <a href="{{ route('evaluador.perfil') }}" class="nav-link {{ request()->routeIs('evaluador.perfil*') ? 'active' : '' }}">
+                <span>Mi firma</span>
             </a>
             <a href="{{ route('estadisticas') }}" class="nav-link {{ request()->routeIs('estadisticas') ? 'active' : '' }}">
                 <span>Estadísticas</span>

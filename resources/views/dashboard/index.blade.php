@@ -74,6 +74,7 @@
             @endif
         @endif
 
+        @if(session('user_role') === 'evaluado')
         <!-- Pruebas disponibles -->
         <div class="card">
             <div class="d-flex justify-between align-center mb-2">
@@ -83,8 +84,7 @@
 
             @forelse($tests as $test)
                 @php
-                    // Evaluadores y admins siempre tienen acceso; evaluados necesitan entrevista completada Y habilitación del evaluador
-                    $puedeIniciar = session('user_role') !== 'evaluado' || (($entrevistaCompletada ?? false) && ($pmaHabilitado ?? false));
+                    $puedeIniciar = ($entrevistaCompletada ?? false) && ($pmaHabilitado ?? false);
                 @endphp
                 <div style="padding:1rem;border:1px solid #eef1f5;border-radius:12px;margin-bottom:0.75rem;display:flex;align-items:center;justify-content:space-between;transition:box-shadow 0.2s;{{ !$puedeIniciar ? 'opacity:.6' : '' }}"
                     onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
@@ -121,7 +121,6 @@
             @endforelse
         </div>
 
-        @if(session('user_role') !== 'evaluado')
         <!-- Sesiones recientes -->
         <div class="card">
             <div class="d-flex justify-between align-center mb-2">

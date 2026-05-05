@@ -58,23 +58,6 @@ textarea.form-input-eval{resize:vertical;min-height:70px}
         </form>
         @endif
         
-        @if(!($entrevista['pma_habilitado'] ?? false))
-        <form method="POST" action="{{ route('evaluador.entrevista.habilitar_pma', $userId) }}"
-              onsubmit="return confirm('¿Habilitar acceso a la prueba PMA-R para este aspirante?')">
-            @csrf
-            <button type="submit" style="padding:.6rem 1.25rem;background:#1a3a6b;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.875rem">
-                🔓 Habilitar PMA-R
-            </button>
-        </form>
-        @else
-        <form method="POST" action="{{ route('evaluador.entrevista.habilitar_pma', $userId) }}"
-              onsubmit="return confirm('¿Deshabilitar el acceso a la prueba PMA-R para este aspirante?')">
-            @csrf
-            <button type="submit" style="padding:.6rem 1.25rem;background:#107c10;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.875rem">
-                ✅ PMA-R Habilitada
-            </button>
-        </form>
-        @endif
     </div>
 </div>
 

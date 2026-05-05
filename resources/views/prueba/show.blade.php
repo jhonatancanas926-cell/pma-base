@@ -44,6 +44,10 @@
                 Continuar evaluación →
             </a>
             @else
+            @php
+                $puedeIniciar = ($entrevistaCompletada ?? false) && ($pmaHabilitado ?? false);
+            @endphp
+            @if($puedeIniciar)
             <form action="{{ route('sesiones.store') }}" method="POST">
                 @csrf
                 <input type="hidden" name="test_id" value="{{ $test['id'] }}">
@@ -51,6 +55,17 @@
                     🚀 Iniciar evaluación
                 </button>
             </form>
+            @else
+            <div class="alert alert-warning mb-2">
+                🔒 <strong>Prueba bloqueada.</strong><br>
+                {{ ($entrevistaCompletada ?? false) ? 'Por favor espera a que tu evaluador habilite el acceso a la prueba PMA-R.' : 'Debes completar tu entrevista antes de poder iniciar esta prueba.' }}
+            </div>
+            @if(!($entrevistaCompletada ?? false))
+            <a href="{{ route('entrevista.index') }}" class="btn btn-accent btn-lg" style="width:100%;justify-content:center">
+                Ir a Entrevista →
+            </a>
+            @endif
+            @endif
             @endif
         </div>
     </div>
